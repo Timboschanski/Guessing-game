@@ -10,8 +10,9 @@ import (
 	"time"
 )
 
+//main Input of Parameters and run functions
 func main() {
-	params := validation()
+	params := validation(os.Args[1:])
 	param := randomizer(params.From, params.To)
 	guesser(param.Rdm)
 }
@@ -22,11 +23,9 @@ type Parameters struct {
 }
 
 //validation To Ensure that Errors will Print a User friendly Error and Check that the used Params are appropriate for the Program.
-func validation() Parameters {
+func validation(args []string) Parameters {
 
 	result := Parameters{}
-
-	args := os.Args[1:]
 
 	if len(args) != 2 {
 		fmt.Println("error: 2 command line arguments expected")
@@ -64,6 +63,7 @@ type Parameter struct {
 	Rdm int
 }
 
+//randomizer Randomize a number inbetween given parameters
 func randomizer(from int, to int) Parameter {
 
 	random := Parameter{}
@@ -76,6 +76,7 @@ func randomizer(from int, to int) Parameter {
 
 }
 
+//guesser Making the user able to guess the random number and helping to find it
 func guesser(rdm int) {
 
 	fmt.Println("Guess a number that is between your params")
