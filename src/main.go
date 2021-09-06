@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -12,9 +13,12 @@ import (
 
 //main Input of Parameters and run functions
 func main() {
-	params := validation(os.Args[1:])
-	param := randomizer(params.From, params.To)
-	guesser(param.Rdm)
+	params, err := validation(os.Args[1:])
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	guesser(randomizer(params.From, params.To))
 }
 
 type Parameters struct {
@@ -23,13 +27,13 @@ type Parameters struct {
 }
 
 //validation To Ensure that Errors will Print a User friendly Error and Check that the used Params are appropriate for the Program.
-func validation(args []string) Parameters {
+func validation(args []string) (Parameters, error) {
 
 	result := Parameters{}
 
 	if len(args) != 2 {
-		fmt.Println("error: 2 command line arguments expected")
-		os.Exit(1)
+		err_new := errors.New("error: 2 command line arguments expected")
+		return result, err_new
 	}
 
 	parseFailure := false
@@ -45,35 +49,26 @@ func validation(args []string) Parameters {
 	}
 
 	if parseFailure {
-		fmt.Println("error: Please use integers as command line parameters.")
-		os.Exit(1)
+		err_new := errors.New("error: Please use integers as command line parameters")
+		return result, err_new
 	}
 
 	if !(from <= to) {
-		fmt.Println("error: From must be <= to. Please use valid values.")
-		os.Exit(1)
+		err_new := errors.New("error: From must be <= to. Please use valid values")
+		return result, err_new
 	}
 	result.From = from
 	result.To = to
 
-	return result
-}
-
-type Parameter struct {
-	Rdm int
+	return result, nil
 }
 
 //randomizer Randomize a number inbetween given parameters
-func randomizer(from int, to int) Parameter {
-
-	random := Parameter{}
+func randomizer(from int, to int) int {
 
 	rand.Seed(time.Now().UnixNano())
 	rdm := (rand.Intn(to-from) + from)
-
-	random.Rdm = rdm
-	return random
-
+	return rdm
 }
 
 //guesser Making the user able to guess the random number and helping to find it
