@@ -2,10 +2,13 @@ package main
 
 import (
 	"bufio"
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -18,12 +21,20 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	guesser(randomizer(params.From, params.To))
+
+	guesser(randomizer(params.From, params.To), params.User)
+
+	records := readCsvFile("scoreboard.csv")
+	for _, v := range records[:5] {
+		fmt.Println(v)
+	}
+	fmt.Println("Gespielte Spiele:", len(records))
 }
 
 type Parameters struct {
 	From int
 	To   int
+	User string
 }
 
 //validation To Ensure that Errors will Print a User friendly Error and Check that the used Params are appropriate for the Program.
@@ -31,8 +42,8 @@ func validation(args []string) (Parameters, error) {
 
 	result := Parameters{}
 
-	if len(args) != 2 {
-		err_new := errors.New("error: 2 command line arguments expected")
+	if len(args) != 3 {
+		err_new := errors.New("error: 3 command line arguments expected(From To User)")
 		return result, err_new
 	}
 
@@ -48,8 +59,10 @@ func validation(args []string) (Parameters, error) {
 		parseFailure = true
 	}
 
+	user := args[2]
+
 	if parseFailure {
-		err_new := errors.New("error: Please use integers as command line parameters")
+		err_new := errors.New("error: Please use integers for the first 2 command line parameters and a Username as Third")
 		return result, err_new
 	}
 
@@ -59,6 +72,7 @@ func validation(args []string) (Parameters, error) {
 	}
 	result.From = from
 	result.To = to
+	result.User = user
 
 	return result, nil
 }
@@ -72,7 +86,7 @@ func randomizer(from int, to int) int {
 }
 
 //guesser Making the user able to guess the random number and helping to find it
-func guesser(rdm int) {
+func guesser(rdm int, user string) {
 
 	fmt.Println("Guess a number that is between your params")
 	fmt.Println("Please input your guess")
@@ -106,4 +120,44 @@ func guesser(rdm int) {
 			break
 		}
 	}
+
+	f, err := os.OpenFile("scoreboard.csv", os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		log.Fatalf("failed opening file: %s", err)
+	}
+	defer f.Close()
+
+	output := "\n" + strconv.Itoa(attempts) + "," + user
+
+	a, err := f.WriteString(output)
+	if err != nil {
+		fmt.Println("error: can not write into file")
+	}
+	fmt.Printf("%d bytes written\n", a)
+	f.Sync()
+}
+
+//readCsvFile read csv file, take the Input and sorts it
+func readCsvFile(filePath string) [][]string {
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	defer f.Close()
+
+	csvReader := csv.NewReader(f)
+	records, err := csvReader.ReadAll()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	sort.Slice(records, func(i, j int) bool {
+		return records[i][0] < records[j][0]
+	})
+
+	fmt.Println("Current Scoreboard(Top 5):")
+	return records
 }
