@@ -172,7 +172,7 @@ func guesser(rdm int, user string) {
 	f.Sync()
 }
 
-//readCsvFile read csv file, take the Input and sorts it
+//readCsvFile read csv file "scoreboard.csv", takes the Input and sorts it
 func readCsvFile(filePath string) [][]string {
 
 	f, err := os.Open(filePath)
@@ -198,6 +198,7 @@ func readCsvFile(filePath string) [][]string {
 
 }
 
+//readCsvFile read csv file "playedgames.csv"
 func readCsvFile2(filePath string) []string {
 
 	file, err := os.Open(filePath)
@@ -209,11 +210,5 @@ func readCsvFile2(filePath string) []string {
 
 	r := csv.NewReader(file)
 	records2, _ := r.Read()
-	//csvReader := csv.NewReader(file)
-	//records2, err := csvReader.ReadAll()
-	//if err != nil {
-	//	fmt.Println(err)
-	//	os.Exit(1)
-	//}
 	return records2
 }
