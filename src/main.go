@@ -27,8 +27,43 @@ func main() {
 	records := readCsvFile("scoreboard.csv")
 	for _, v := range records[:5] {
 		fmt.Println(v)
+		f, err := os.OpenFile("scoreboard.csv", os.O_WRONLY|os.O_TRUNC, 0644)
+		if err != nil {
+			log.Fatalf("failed opening file: %s", err)
+		}
+		defer f.Close()
+
+		records := records[:5]
+		a := csv.NewWriter(f)
+		err = a.WriteAll(records)
+
+		if err != nil {
+			fmt.Println("error: can not write into file")
+		}
+		f.Sync()
 	}
-	fmt.Println("Gespielte Spiele:", len(records))
+
+	records2 := readCsvFile2("playedgames.csv")
+	fmt.Println("Gespielte Spiele:", records2)
+
+	file, err := os.OpenFile("playedgames.csv", os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("failed opening file: %s", err)
+	}
+	x := 0
+	z, _ := strconv.Atoi(records2[0])
+	if x < z {
+		x = z + 1
+	}
+	counter := strconv.Itoa(x)
+
+	b, err := file.WriteString(counter)
+	if err != nil {
+		fmt.Println("error: can not write into file")
+	}
+	fmt.Printf("%d bytes written\n", b)
+	file.Sync()
+
 }
 
 type Parameters struct {
@@ -160,4 +195,25 @@ func readCsvFile(filePath string) [][]string {
 
 	fmt.Println("Current Scoreboard(Top 5):")
 	return records
+
+}
+
+func readCsvFile2(filePath string) []string {
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	defer file.Close()
+
+	r := csv.NewReader(file)
+	records2, _ := r.Read()
+	//csvReader := csv.NewReader(file)
+	//records2, err := csvReader.ReadAll()
+	//if err != nil {
+	//	fmt.Println(err)
+	//	os.Exit(1)
+	//}
+	return records2
 }
