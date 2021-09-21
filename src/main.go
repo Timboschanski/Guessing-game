@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-//main Input of Parameters and run functions
+//main Input of parameters and run functions
 func main() {
 	params, err := validation(os.Args[1:])
 	if err != nil {
@@ -24,46 +24,12 @@ func main() {
 
 	guesser(randomizer(params.From, params.To), params.User)
 
-	records := readCsvFile("scoreboard.csv")
-	for _, v := range records[:5] {
-		fmt.Println(v)
-		f, err := os.OpenFile("scoreboard.csv", os.O_WRONLY|os.O_TRUNC, 0644)
-		if err != nil {
-			log.Fatalf("failed opening file: %s", err)
-		}
-		defer f.Close()
+	records := sorter("scoreboard.csv")
+	writescore(records)
 
-		records := records[:5]
-		a := csv.NewWriter(f)
-		err = a.WriteAll(records)
-
-		if err != nil {
-			fmt.Println("error: can not write into file")
-		}
-		f.Sync()
-	}
-
-	records2 := readCsvFile2("playedgames.csv")
+	records2 := callgames("playedgames.csv")
 	fmt.Println("Gespielte Spiele:", records2)
-
-	file, err := os.OpenFile("playedgames.csv", os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatalf("failed opening file: %s", err)
-	}
-	x := 0
-	z, _ := strconv.Atoi(records2[0])
-	if x < z {
-		x = z + 1
-	}
-	counter := strconv.Itoa(x)
-
-	b, err := file.WriteString(counter)
-	if err != nil {
-		fmt.Println("error: can not write into file")
-	}
-	fmt.Printf("%d bytes written\n", b)
-	file.Sync()
-
+	writegames(records2)
 }
 
 type Parameters struct {
@@ -72,7 +38,7 @@ type Parameters struct {
 	User string
 }
 
-//validation To Ensure that Errors will Print a User friendly Error and Check that the used Params are appropriate for the Program.
+//validation To ensure that errors will print a user friendly error massage and check that the used params are appropriate for the program.
 func validation(args []string) (Parameters, error) {
 
 	result := Parameters{}
@@ -156,7 +122,7 @@ func guesser(rdm int, user string) {
 		}
 	}
 
-	f, err := os.OpenFile("scoreboard.csv", os.O_WRONLY|os.O_APPEND, 0644)
+	f, err := os.OpenFile("scoreboard.csv", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
 		log.Fatalf("failed opening file: %s", err)
 	}
@@ -172,8 +138,8 @@ func guesser(rdm int, user string) {
 	f.Sync()
 }
 
-//readCsvFile read csv file "scoreboard.csv", takes the Input and sorts it
-func readCsvFile(filePath string) [][]string {
+//sorter Read CSV file "scoreboard.csv", takes the Input and sorts it
+func sorter(filePath string) [][]string {
 
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -198,8 +164,8 @@ func readCsvFile(filePath string) [][]string {
 
 }
 
-//readCsvFile read csv file "playedgames.csv"
-func readCsvFile2(filePath string) []string {
+//callgames Read CSV file "playedgames.csv"
+func callgames(filePath string) []string {
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -211,4 +177,63 @@ func readCsvFile2(filePath string) []string {
 	r := csv.NewReader(file)
 	records2, _ := r.Read()
 	return records2
+}
+
+//writescore Read CSV file "scoreboard.csv" and overwrites it
+func writescore(records [][]string) {
+	var a = map[string][]string{}
+
+	for _, v := range records {
+
+		key := v[0] + "_" + v[1]
+		a[key] = v
+	}
+	records = [][]string{}
+	for _, v := range a {
+		records = append(records, v)
+	}
+
+	lenr := len(records)
+	if lenr > 5 {
+		lenr = 5
+	}
+
+	records = records[:lenr]
+	for _, v := range records[:] {
+		fmt.Println(v)
+	}
+	f, err := os.OpenFile("scoreboard.csv", os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		log.Fatalf("failed opening file: %s", err)
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
+	err = w.WriteAll(records)
+
+	if err != nil {
+		fmt.Println("error: can not write into file")
+	}
+	f.Sync()
+}
+
+//writegames Reads CSV file "playedgames.csv" and Overwrites it
+func writegames(records2 []string) {
+	file, err := os.OpenFile("playedgames.csv", os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("failed opening file: %s", err)
+	}
+	x := 0
+	z, _ := strconv.Atoi(records2[0])
+	if x < z {
+		x = z + 1
+	}
+	counter := strconv.Itoa(x)
+
+	b, err := file.WriteString(counter)
+	if err != nil {
+		fmt.Println("error: can not write into file")
+	}
+	fmt.Printf("%d bytes written\n", b)
+	file.Sync()
 }
