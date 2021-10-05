@@ -7,29 +7,41 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
+)
+
+const (
+	SCOREBOARDFILE  = "./utils/scoreboard.csv"
+	PLAYEDGAMESFILE = "./utils/playedgames.csv"
 )
 
 //main Input of parameters and run functions
 func main() {
-	params, err := validation(os.Args[1:])
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	go server()
+	for {
+		params, err := validation(os.Args[1:])
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		guesser(randomizer(params.From, params.To), params.User)
+
+		records := sorter(SCOREBOARDFILE)
+		writescore(records)
+
+		records2 := readfile(PLAYEDGAMESFILE)
+		fmt.Println("Gespielte Spiele:", records2)
+		writegames(records2)
+
 	}
-
-	guesser(randomizer(params.From, params.To), params.User)
-
-	records := sorter("scoreboard.csv")
-	writescore(records)
-
-	records2 := callgames("playedgames.csv")
-	fmt.Println("Gespielte Spiele:", records2)
-	writegames(records2)
 }
 
 type Parameters struct {
@@ -122,7 +134,7 @@ func guesser(rdm int, user string) {
 		}
 	}
 
-	f, err := os.OpenFile("scoreboard.csv", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	f, err := os.OpenFile(SCOREBOARDFILE, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
 		log.Fatalf("failed opening file: %s", err)
 	}
@@ -141,31 +153,16 @@ func guesser(rdm int, user string) {
 //sorter Read CSV file "scoreboard.csv", takes the Input and sorts it
 func sorter(filePath string) [][]string {
 
-	f, err := os.Open(filePath)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	defer f.Close()
-
-	csvReader := csv.NewReader(f)
-	records, err := csvReader.ReadAll()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
+	records := readall(filePath)
 	sort.Slice(records, func(i, j int) bool {
 		return records[i][0] < records[j][0]
 	})
 
-	fmt.Println("Current Scoreboard(Top 5):")
 	return records
 
 }
 
-//callgames Read CSV file "playedgames.csv"
-func callgames(filePath string) []string {
+func readall(filePath string) [][]string {
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -175,41 +172,55 @@ func callgames(filePath string) []string {
 	defer file.Close()
 
 	r := csv.NewReader(file)
-	records2, _ := r.Read()
-	return records2
+	records, _ := r.ReadAll()
+	return records
+}
+
+//readfile Read CSV file "playedgames.csv"
+func readfile(filePath string) []string {
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	defer file.Close()
+
+	r := csv.NewReader(file)
+	records, _ := r.Read()
+	return records
 }
 
 //writescore Read CSV file "scoreboard.csv" and overwrites it
 func writescore(records [][]string) {
-	var a = map[string][]string{}
 
+	uniquerecords := [][]string{}
+	lastrecord := []string{"xyz", ""}
+
+	i := 0
 	for _, v := range records {
-
-		key := v[0] + "_" + v[1]
-		a[key] = v
-	}
-	records = [][]string{}
-	for _, v := range a {
-		records = append(records, v)
-	}
-
-	lenr := len(records)
-	if lenr > 5 {
-		lenr = 5
+		if v[0] != lastrecord[0] || v[1] != lastrecord[1] {
+			uniquerecords = append(uniquerecords, v)
+			i++
+			if i == 5 {
+				break
+			}
+		}
+		lastrecord = v
 	}
 
-	records = records[:lenr]
-	for _, v := range records[:] {
+	fmt.Println("Current Scoreboard(Top 5):")
+	for _, v := range uniquerecords[:] {
 		fmt.Println(v)
 	}
-	f, err := os.OpenFile("scoreboard.csv", os.O_WRONLY|os.O_TRUNC, 0644)
+	f, err := os.OpenFile(SCOREBOARDFILE, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		log.Fatalf("failed opening file: %s", err)
 	}
 	defer f.Close()
 
 	w := csv.NewWriter(f)
-	err = w.WriteAll(records)
+	err = w.WriteAll(uniquerecords)
 
 	if err != nil {
 		fmt.Println("error: can not write into file")
@@ -219,7 +230,8 @@ func writescore(records [][]string) {
 
 //writegames Reads CSV file "playedgames.csv" and Overwrites it
 func writegames(records2 []string) {
-	file, err := os.OpenFile("playedgames.csv", os.O_WRONLY, 0644)
+
+	file, err := os.OpenFile(PLAYEDGAMESFILE, os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("failed opening file: %s", err)
 	}
@@ -236,4 +248,68 @@ func writegames(records2 []string) {
 	}
 	fmt.Printf("%d bytes written\n", b)
 	file.Sync()
+}
+
+//server Creats a Web Server
+func server() {
+
+	r := mux.NewRouter()
+
+	r.HandleFunc("/", home).Methods(http.MethodGet)
+
+	r.HandleFunc("/scoreboard/", scoreall).Methods(http.MethodGet)
+	r.HandleFunc("/scoreboard/{player}", score).Methods(http.MethodGet)
+
+	err := http.ListenAndServe(":8081", r)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func home(w http.ResponseWriter, req *http.Request) {
+	w.Write([]byte("Hi, here you can get the csv files from the guessing-game."))
+
+}
+
+func score(w http.ResponseWriter, req *http.Request) {
+
+	score := readall(SCOREBOARDFILE)
+
+	lenr := len(score)
+	if lenr > 5 {
+		lenr = 5
+	}
+	score = score[:lenr]
+
+	vars := mux.Vars(req)
+	post_id := vars["player"]
+
+	var s string
+	for _, v := range score {
+		if v[1] == post_id {
+			s += fmt.Sprintf("%s %s\n", v[0], v[1])
+		}
+	}
+
+	w.Write([]byte("Scoreboard\n"))
+	w.Write([]byte(s))
+}
+
+func scoreall(w http.ResponseWriter, req *http.Request) {
+
+	score := readall(SCOREBOARDFILE)
+
+	lenr := len(score)
+	if lenr > 5 {
+		lenr = 5
+	}
+	score = score[:lenr]
+
+	var s string
+	for _, v := range score {
+		s += fmt.Sprintf("%s %s\n", v[0], v[1])
+	}
+
+	w.Write([]byte("Scoreboard\n"))
+	w.Write([]byte(s))
 }
