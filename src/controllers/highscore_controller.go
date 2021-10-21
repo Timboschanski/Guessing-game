@@ -34,6 +34,7 @@ func Score(w http.ResponseWriter, req *http.Request) {
 
 func Scoreall(w http.ResponseWriter, req *http.Request) {
 
+	out := req.URL.Query().Get("out")
 	score := utils.CutTo(utils.Readall(config.SCOREBOARDFILE), config.NUMSCORES)
 
 	var s string
@@ -42,5 +43,8 @@ func Scoreall(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.Write([]byte("Scoreboard\n"))
+	if out == "json" || out == "yaml" || out == "yml" {
+		fmt.Fprint(w, "Out = ", out, "\n")
+	}
 	w.Write([]byte(s))
 }
